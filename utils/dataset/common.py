@@ -102,7 +102,8 @@ def tokenize(
 ):
     pad, cls, sep = tokenizer.convert_tokens_to_ids(["[PAD]", "[CLS]", "[SEP]"])  # type: ignore
 
-    for item in data:
+    for i, item in enumerate(data):
+        print("%d/%d" % (i + 1, len(data)))
         item["instruction_tokens"] = []
         if "highlights" in item:
             item["instruction_highlights"] = []

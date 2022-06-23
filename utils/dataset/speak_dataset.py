@@ -111,8 +111,11 @@ class SpeakDataset(BeamDataset):
             self._vln_data = load_json_data(tokenized_path)
         else:
             self._vln_data = load_json_data(vln_path)
+            print('asdfsadfad')
             tokenize(self._vln_data, tokenizer, max_instruction_length)
             save_json_data(self._vln_data, tokenized_path)
+
+        print('asdfsad')
 
         # load navigation graphs
         scan_list = list(set([item["scan"] for item in self._vln_data]))

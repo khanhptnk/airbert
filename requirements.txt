@@ -3,7 +3,6 @@ tqdm
 nltk
 numpy
 tensorboardX
-dataclass
 boto3
 requests
 transformers

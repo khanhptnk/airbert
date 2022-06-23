@@ -26,6 +26,7 @@ from airbert import Airbert
 from utils.cli import get_parser
 from utils.dataset import PanoFeaturesReader
 from utils.dataset.speak_dataset import SpeakDataset
+from pprint import pprint
 
 logging.basicConfig(
     format="%(asctime)s - %(levelname)s - %(name)s -   %(message)s",
@@ -46,7 +47,8 @@ def main():
     parser = get_parser(training=True, speaker=True)
     args = parser.parse_args()
     # FIXME how to do it properly in bash?
-    args.perturbations = [p for pert in args.perturbations for p in pert.split(" ")]
+
+    #args.perturbations = [p for pert in args.perturbations for p in pert.split(" ")]
 
     # validate command line arguments
     if not (args.masked_vision or args.masked_language) and args.no_ranking:
@@ -93,8 +95,9 @@ def main():
     # ------------ #
 
     tokenizer = AutoTokenizer.from_pretrained(args.bert_tokenizer)
-    if not isinstance(tokenizer, BertTokenizer):
-        raise ValueError("fix mypy")
+    #print(tokenizer)
+    #if not isinstance(tokenizer, BertTokenizer):
+    #    raise ValueError("fix mypy")
     features_reader = PanoFeaturesReader(args.img_feature)
     vln_path = f"data/task/{args.prefix}R2R_train.json"
 
@@ -194,6 +197,8 @@ def main():
     config = BertConfig.from_json_file(args.config_file)
     config.cat_highlight = args.cat_highlight # type: ignore
     config.convert_mask = True # type: ignore
+
+    config.model_name = args.model_name
 
     if len(args.from_pretrained) == 0:  # hack for catching --from_pretrained ""
         model = Airbert(config)
@@ -431,7 +436,7 @@ def rollout(batch: Batch, model: nn.Module, window: int
         # W x B
         instr = predictions.argmax(1).view(batch_size, -1)
 
-        # calculate the final loss on non-padding tokens 
+        # calculate the final loss on non-padding tokens
         loss = F.cross_entropy(predictions, small_target, ignore_index=0)
 
         # backward pass
@@ -572,21 +577,21 @@ def get_model_input(batch: Batch) -> Dict[str, torch.Tensor]:
     num_tokens = get_instr_length(batch)
 
     # duplicate for each word token
-    image_features = batch["image_features"].unsqueeze(1).repeat(1, num_tokens - 1, 1, 1) 
+    image_features = batch["image_features"].unsqueeze(1).repeat(1, num_tokens - 1, 1, 1)
     image_locations = batch["image_boxes"].unsqueeze(1).repeat(1, num_tokens - 1,  1, 1)
-    image_mask = batch["image_masks"].unsqueeze(1).repeat(1, num_tokens - 1, 1) 
+    image_mask = batch["image_masks"].unsqueeze(1).repeat(1, num_tokens - 1, 1)
     instr_tokens = batch["instr_tokens"].unsqueeze(1).repeat(1, num_tokens - 1, 1)
     segment_ids = batch["segment_ids"].unsqueeze(1).repeat(1, num_tokens - 1, 1)
     instr_mask = batch["instr_mask"].unsqueeze(1).repeat(1, num_tokens - 1, 1)
 
     # create triangular masks
     tri = (
-        torch.ones((num_tokens - 1, num_tokens)) 
+        torch.ones((num_tokens - 1, num_tokens))
         .tril(0)
         .bool()
         .repeat(batch_size, 1, 1)
         . transpose(0, 1)
-        .reshape(-1, num_tokens)
+        .reshape(-1, num_tokens - 1, num_tokens)
         .to(instr_mask.device)
     )
     instr_mask = torch.logical_and(instr_mask, tri) # type: ignore
@@ -618,7 +623,7 @@ def get_device(batch: Batch):
     return batch["instr_tokens"].device
 
 def get_mask_predictions(batch: Batch) -> torch.Tensor:
-    target_length = batch["target_tokens"].shape[1] 
+    target_length = batch["target_tokens"].shape[1]
     instruction_length = get_instr_length(batch) - target_length
     batch_size = get_batch_size(batch)
     device = get_device(batch)
